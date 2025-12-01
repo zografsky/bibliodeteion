@@ -1,0 +1,88 @@
+<!doctype html>
+</table>
+<div id="empty" class="empty" style="display:none">Ничего не найдено.</div>
+</div>
+
+
+<script>
+async function loadManifest(){
+try{
+const res = await fetch('manifest.json', {cache: 'no-cache'});
+if(!res.ok) throw new Error('manifest not found');
+const data = await res.json();
+return data.files || [];
+}catch(e){
+console.error(e);
+return [];
+}
+}
+
+
+function fmtSize(bytes){
+if(bytes==null) return '';
+const kb = bytes/1024; if(kb<1024) return kb.toFixed(1)+' KB';
+const mb = kb/1024; return mb.toFixed(2)+' MB';
+}
+
+
+function renderRows(files){
+const tbody = document.getElementById('tbody');
+tbody.innerHTML = '';
+for(const f of files){
+const tr = document.createElement('tr');
+const nameTd = document.createElement('td');
+nameTd.innerHTML = `<strong>${escapeHtml(f.title||f.filename)}</strong>` + (f.tags? ('<div>'+ (f.tags.map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')) +'</div>') : '');
+const authorTd = document.createElement('td'); authorTd.textContent = f.author||'';
+const fileTd = document.createElement('td');
+const a = document.createElement('a');
+a.href = (f.url || ('books/' + encodeURIComponent(f.filename)));
+a.className = 'download';
+a.textContent = f.filename;
+a.setAttribute('download','');
+fileTd.appendChild(a);
+const sizeTd = document.createElement('td'); sizeTd.textContent = fmtSize(f.size);
+const dateTd = document.createElement('td'); dateTd.textContent = f.date || '';
+tr.appendChild(nameTd); tr.appendChild(authorTd); tr.appendChild(fileTd); tr.appendChild(sizeTd); tr.appendChild(dateTd);
+tbody.appendChild(tr);
+}
+}
+
+
+function escapeHtml(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+
+function filterFiles(files, q, onlyFree){
+q = (q||'').trim().toLowerCase();
+return files.filter(f=>{
+if(onlyFree && f.free===false) return false;
+if(!q) return true;
+const hay = ((f.title||'')+ ' ' + (f.author||'') + ' ' + (f.filename||'') + ' ' + (f.tags||[]).join(' ')).toLowerCase();
+return hay.includes(q);
+});
+}
+
+
+(async ()=>{
+const files = await loadManifest();
+const qInput = document.getElementById('q');
+const onlyFree = document.getElementById('onlyFree');
+const count = document.getElementById('count');
+
+
+function update(){
+const filtered = filterFiles(files, qInput.value, onlyFree.checked);
+renderRows(filtered);
+count.textContent = `Показано ${filtered.length} из ${files.length}`;
+document.getElementById('empty').style.display = filtered.length? 'none' : 'block';
+}
+
+
+qInput.addEventListener('input', update);
+onlyFree.addEventListener('change', update);
+
+
+update();
+})();
+</script>
+</body>
+</html>
